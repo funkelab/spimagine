@@ -592,6 +592,9 @@ class GLWidget(QtOpenGL.QGLWidget):
 
         self._mat_modelviewproject = np.dot(self._mat_proj, self._mat_modelview)
 
+        for (m, vbo_verts, vbo_normals, vbo_indices) in self.meshes:
+            self._paintGL_mesh(m, vbo_verts, vbo_normals, vbo_indices)
+
         if self.dataModel:
 
             self.textureAlpha = fillTexture2d(self.output_alpha, self.textureAlpha)
@@ -603,9 +606,6 @@ class GLWidget(QtOpenGL.QGLWidget):
                 self._paintGL_slice()
 
             self._paintGL_render()
-
-        for (m, vbo_verts, vbo_normals, vbo_indices) in self.meshes:
-            self._paintGL_mesh(m, vbo_verts, vbo_normals, vbo_indices)
 
     def render(self):
         logger.debug("render")
