@@ -52,6 +52,7 @@ from spimagine.utils.transform_matrices import *
 from spimagine.models.transform_model import TransformModel
 from spimagine.models.data_model import DataModel
 from spimagine.gui.mesh import Mesh, SphericalMesh, EllipsoidMesh
+from spimagine.gui.lines import Lines
 import numpy as np
 from spimagine.gui.gui_utils import *
 
@@ -135,6 +136,7 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.dataModel = None
 
         self.meshes = []
+        self.lines = []
 
         # self.setMouseTracking(True)
 
@@ -323,6 +325,7 @@ class GLWidget(QtOpenGL.QGLWidget):
                                  stackUnits=self.dataModel.stackUnits())
 
             self.meshes = []
+            self.lines = []
             self.refresh()
 
     def _get_min_max(self):
@@ -407,7 +410,11 @@ class GLWidget(QtOpenGL.QGLWidget):
 
         self.refresh()
         # sort according to opacity as the opaque objects should be drawn first
-        # self.meshes.sort(key=lambda x: x[0].alpha, reverse=True)
+        self.meshes.sort(key=lambda x: x[0].alpha, reverse=True)
+
+    def add_lines(self, lines=Lines()):
+
+        self.lines.append(lines)
 
     def _paintGL_render(self):
         # Draw the render texture
@@ -506,8 +513,13 @@ class GLWidget(QtOpenGL.QGLWidget):
         """
         paint a mesh (which has all the coordinates and colors in it
         """
-        glEnable(GL_DEPTH_TEST)
-        glDisable(GL_BLEND)
+
+        if mesh.alpha < 1.0:
+            glDisable(GL_DEPTH_TEST)
+            glEnable(GL_BLEND)
+        else:
+            glEnable(GL_DEPTH_TEST)
+            glDisable(GL_BLEND)
 
         prog = self.programMeshLight
         prog.bind()
@@ -573,6 +585,41 @@ class GLWidget(QtOpenGL.QGLWidget):
             #
             #     glDrawArrays(GL_LINES, 0, len(mesh.edges))
 
+    def _paintGL_lines(self, lines):
+        """
+        paint lines (which have all the coordinates and colors in it
+        """
+
+        if lines.alpha < 1.0:
+            glDisable(GL_DEPTH_TEST)
+            glEnable(GL_BLEND)
+        else:
+            glEnable(GL_DEPTH_TEST)
+            glDisable(GL_BLEND)
+
+        prog = self.programCube
+        prog.bind()
+        prog.setUniformValue("mvpMatrix",
+                             QtGui.QMatrix4x4(*self._mat_modelviewproject.flatten()))
+
+        prog.setUniformValue("mvMatrix",
+                             QtGui.QMatrix4x4(*self._mat_modelview.flatten()))
+
+        prog.setUniformValue("normMatrix",
+                             QtGui.QMatrix4x4(*self._mat_normal.flatten()))
+
+        prog.enableAttributeArray("position")
+
+        r, g, b = lines.linecolor[:3]
+        a = lines.alpha
+        prog.setUniformValue("color",
+                             QtGui.QVector4D(r, g, b, a))
+
+        prog.setAttributeArray("position", lines.vertices)
+
+        glLineWidth(lines.width)
+        glDrawArrays(GL_LINES, 0, len(lines.vertices))
+
     def paintGL(self):
 
         self.makeCurrent()
@@ -594,6 +641,9 @@ class GLWidget(QtOpenGL.QGLWidget):
 
         for (m, vbo_verts, vbo_normals, vbo_indices) in self.meshes:
             self._paintGL_mesh(m, vbo_verts, vbo_normals, vbo_indices)
+
+        for l in self.lines:
+            self._paintGL_lines(l)
 
         if self.dataModel:
 
