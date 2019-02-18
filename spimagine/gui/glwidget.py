@@ -45,6 +45,7 @@ from PyQt5 import QtGui, QtWidgets
 from PyQt5 import QtOpenGL
 from PyQt5.QtGui import QOpenGLShaderProgram, QOpenGLShader
 from OpenGL.GL import *
+from OpenGL.GLUT import *
 import OpenGL.arrays.vbo as glvbo
 import spimagine
 from spimagine.volumerender.volumerender import VolumeRenderer
@@ -53,6 +54,7 @@ from spimagine.models.transform_model import TransformModel
 from spimagine.models.data_model import DataModel
 from spimagine.gui.mesh import Mesh, SphericalMesh, EllipsoidMesh
 from spimagine.gui.lines import Lines
+from spimagine.gui.text import Text
 import numpy as np
 from spimagine.gui.gui_utils import *
 
@@ -137,6 +139,7 @@ class GLWidget(QtOpenGL.QGLWidget):
 
         self.meshes = []
         self.lines = []
+        self.texts = []
 
         # self.setMouseTracking(True)
 
@@ -145,6 +148,8 @@ class GLWidget(QtOpenGL.QGLWidget):
         self.refresh()
 
         # self.installEventFilter(self)
+
+        glutInit()
 
     def set_background_mode_black(self, mode_back=True):
         self._background_mode_black = mode_back
@@ -326,6 +331,7 @@ class GLWidget(QtOpenGL.QGLWidget):
 
             self.meshes = []
             self.lines = []
+            self.texts = []
             self.refresh()
 
     def _get_min_max(self):
@@ -415,6 +421,10 @@ class GLWidget(QtOpenGL.QGLWidget):
     def add_lines(self, lines=Lines()):
 
         self.lines.append(lines)
+
+    def add_text(self, text):
+
+        self.texts.append(text)
 
     def _paintGL_render(self):
         # Draw the render texture
@@ -620,6 +630,24 @@ class GLWidget(QtOpenGL.QGLWidget):
         glLineWidth(lines.width)
         glDrawArrays(GL_LINES, 0, len(lines.vertices))
 
+    def _paintGL_text(self, text):
+
+        glRasterPos3f(*text.position)
+
+        if not glGetBooleanv(GL_CURRENT_RASTER_POSITION_VALID):
+            # call to glWindowPos2f needed to reset valid bit of raster position
+            glWindowPos2f(0., 0.)
+            return
+
+        r, g, b = text.color
+        a = text.alpha
+        prog = self.programCube
+        prog.bind()
+        prog.setUniformValue("color",
+                             QtGui.QVector4D(r, g, b, a))
+        for c in text.text:
+            glutBitmapCharacter(text.font, ctypes.c_int(ord(c)))
+
     def paintGL(self):
 
         self.makeCurrent()
@@ -644,6 +672,9 @@ class GLWidget(QtOpenGL.QGLWidget):
 
         for l in self.lines:
             self._paintGL_lines(l)
+
+        for t in self.texts:
+            self._paintGL_text(t)
 
         if self.dataModel:
 
